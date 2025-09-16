@@ -1,0 +1,74 @@
+/* 교보문고 플러그인 스타일 */
+
+.kyobobook-search-modal .suggestion-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 10px;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 5px;
+  margin-bottom: 8px;
+}
+
+.kyobobook-search-modal .suggestion-item.is-selected {
+  background-color: var(--background-modifier-hover);
+}
+
+.kyobobook-search-modal .book-cover {
+  width: 80px;
+  height: 120px;
+  object-fit: cover;
+  margin-right: 15px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.kyobobook-search-modal .book-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.kyobobook-search-modal .book-title {
+  font-weight: bold;
+  font-size: 1.1em;
+  line-height: 1.3;
+  color: var(--text-normal);
+}
+
+.kyobobook-search-modal .book-author {
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.kyobobook-search-modal .book-publisher {
+  color: var(--text-muted);
+  font-size: 0.85em;
+}
+
+.kyobobook-search-modal .book-date {
+  color: var(--text-muted);
+  font-size: 0.8em;
+}
+
+.kyobobook-search-modal .book-link {
+  color: var(--text-accent);
+  font-size: 0.8em;
+  text-decoration: none;
+}
+
+.kyobobook-search-modal .book-link:hover {
+  text-decoration: underline;
+}
+
+.kyobobook-settings .setting-item-description {
+  margin-top: 5px;
+  color: var(--text-muted);
+  font-size: 0.9em;
+}
+
+.kyobobook-settings .setting-item-control textarea {
+  width: 100%;
+  min-height: 200px;
+  font-family: var(--font-monospace);
+}

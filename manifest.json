@@ -1,0 +1,11 @@
+{
+	"id": "kyobobook-plugin",
+	"name": "교보문고 도서 검색",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "교보문고에서 도서를 검색하고 상세 정보를 추출하여 Obsidian 노트를 생성합니다.",
+	"author": "dataofmen",
+	"authorUrl": "https://github.com/dataofmen",
+	"fundingUrl": "https://github.com/dataofmen/kyobobook-plugin",
+	"isDesktopOnly": false
+}
