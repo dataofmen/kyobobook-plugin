@@ -12,10 +12,14 @@ pages: "{{pages}}"
 categories: {{categories}}
 tags: {{tags}}
 rating: "{{rating}}"
+coverImage: "{{coverImage}}"
 created: "{{created}}"
 ---
 
 # {{title}}
+
+## 표지
+![{{title}}]({{coverImage}})
 
 ## 도서 정보
 - 저자: {{authors}}
@@ -24,7 +28,7 @@ created: "{{created}}"
 - ISBN: {{isbn}}
 - 페이지: {{pages}}
 
-## 소개
+## 책 소개
 {{description}}
 
 ## 목차
@@ -35,7 +39,12 @@ created: "{{created}}"
 
 ## 링크
 [교보문고 바로가기]({{url}})`,
-  filenameTemplate: '{{title}} - {{authors}}',
+  filenameTemplate: '{{title}}',
   maxSearchResults: 20,
-  autoCreateTags: true
+  autoCreateTags: true,
+  debugMode: false,
+  strictDetailPrefetch: false,
+  enforceStaticCover: false,
+  prefetchCount: 8,
+  embedCoverInNote: false
 };

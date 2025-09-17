@@ -65,6 +65,63 @@ export class KyobobookSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }));
 
+    // 노트 생성 전 상세정보 선조회(엄격 모드)
+    new Setting(containerEl)
+      .setName('노트 생성 전 상세정보 선조회(엄격 모드)')
+      .setDesc('검색 결과 목록/노트 생성 전에 상세 정보를 미리 조회하여 표지/소개/목차를 최대한 보장합니다. 결과 표시가 느려질 수 있습니다.')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.strictDetailPrefetch)
+        .onChange(async (value) => {
+          this.plugin.settings.strictDetailPrefetch = value;
+          await this.plugin.saveSettings();
+        }));
+
+    // 목록 상세 선조회 개수
+    new Setting(containerEl)
+      .setName('목록 상세 선조회 개수')
+      .setDesc('엄격 모드에서 검색 결과 상단 몇 개 항목에 대해 상세 정보를 선조회할지 설정합니다.')
+      .addSlider(slider => slider
+        .setLimits(0, 20, 1)
+        .setValue(this.plugin.settings.prefetchCount ?? 8)
+        .setDynamicTooltip()
+        .onChange(async (value) => {
+          this.plugin.settings.prefetchCount = value;
+          await this.plugin.saveSettings();
+        }));
+
+    // 썸네일 강제 교보 정적 URL 사용
+    new Setting(containerEl)
+      .setName('썸네일 강제 교보 정적 URL 사용')
+      .setDesc('검색 목록과 생성 노트의 표지를 항상 교보 정적 이미지 URL로 사용합니다. 가장 안정적이지만 해상도/최신성이 제한될 수 있습니다.')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.enforceStaticCover)
+        .onChange(async (value) => {
+          this.plugin.settings.enforceStaticCover = value;
+          await this.plugin.saveSettings();
+        }));
+
+    // 노트에 표지를 data URL로 내장
+    new Setting(containerEl)
+      .setName('노트에 표지를 내장(data URL)')
+      .setDesc('핫링크 차단으로 이미지가 표시되지 않는 경우를 방지하기 위해, 노트에 표지 이미지를 data URL로 직접 내장합니다. 노트 용량이 커질 수 있습니다.')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.embedCoverInNote ?? false)
+        .onChange(async (value) => {
+          this.plugin.settings.embedCoverInNote = value;
+          await this.plugin.saveSettings();
+        }));
+
+    // 디버깅 모드
+    new Setting(containerEl)
+      .setName('디버깅 모드')
+      .setDesc('개발 디버깅을 위한 상세한 로그를 출력하고 HTML 파일을 저장합니다.')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.debugMode)
+        .onChange(async (value) => {
+          this.plugin.settings.debugMode = value;
+          await this.plugin.saveSettings();
+        }));
+
     // 노트 템플릿 설정
     const templateSetting = new Setting(containerEl)
       .setName('노트 템플릿')

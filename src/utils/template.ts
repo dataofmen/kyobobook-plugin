@@ -27,6 +27,7 @@ export function createNoteFromTemplate(book: BookInfo, settings: KyobobookPlugin
     '{{tags}}': tags,
     '{{rating}}': escapeYAMLValue(book.rating || ''),
     '{{url}}': book.url || '',
+    '{{coverImage}}': book.coverImage || '',
     '{{created}}': created
   };
 
@@ -93,9 +94,14 @@ function generateTags(book: BookInfo, settings: KyobobookPluginSettings): string
 function formatDescription(description: string): string {
   if (!description) return '';
 
-  // 긴 설명의 경우 적절히 줄바꿈 처리
+  // 이미 줄바꿈이 잘 포함되어 있다면 그대로 사용
+  if (/\n/.test(description)) {
+    return description;
+  }
+
+  // 긴 설명의 경우 문단 구분을 위해 적절히 줄바꿈 처리
   if (description.length > 200) {
-    return description.replace(/\. /g, '.\n\n');
+    return description.replace(/\.\s+/g, '.\n\n');
   }
 
   return description;

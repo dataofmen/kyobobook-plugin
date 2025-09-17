@@ -1,5 +1,52 @@
 /* 교보문고 플러그인 스타일 */
 
+/* 모달 닫기 버튼 숨김 (불필요한 X 표시 제거) */
+.kyobobook-search-modal .modal-close-button,
+.kyobobook-search-modal .modal-close,
+.kyobobook-search-modal [aria-label="Close"],
+.kyobobook-search-modal button[aria-label="Close"] {
+  display: none !important;
+  visibility: hidden !important;
+}
+
+/* 모달 헤더 개선 */
+.kyobobook-search-modal .modal-title {
+  text-align: center;
+  font-weight: bold;
+  font-size: 1.2em;
+  margin-bottom: 10px;
+}
+
+.kyobobook-search-container {
+  display: flex;
+  justify-content: center;
+  margin: 10px 0;
+  padding: 0 20px;
+}
+
+.kyobobook-search-button {
+  background-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  min-width: 80px;
+}
+
+.kyobobook-search-button:hover {
+  background-color: var(--interactive-accent-hover);
+}
+
+.kyobobook-search-button:disabled {
+  background-color: var(--background-modifier-border);
+  color: var(--text-muted);
+  cursor: not-allowed;
+}
+
 .kyobobook-search-modal .suggestion-item {
   display: flex;
   align-items: flex-start;
