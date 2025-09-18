@@ -89,6 +89,17 @@ export class KyobobookSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }));
 
+    // 선조회 완전 OFF
+    new Setting(containerEl)
+      .setName('검색 후 상세 선조회 끄기 (속도 우선)')
+      .setDesc('검색 직후 상세 정보를 선조회하지 않습니다. 선택/노트 생성 시에만 상세 요청을 수행합니다.')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.disablePrefetch ?? false)
+        .onChange(async (value) => {
+          this.plugin.settings.disablePrefetch = value;
+          await this.plugin.saveSettings();
+        }));
+
     // 썸네일 강제 교보 정적 URL 사용
     new Setting(containerEl)
       .setName('썸네일 강제 교보 정적 URL 사용')
@@ -108,6 +119,17 @@ export class KyobobookSettingTab extends PluginSettingTab {
         .setValue(this.plugin.settings.embedCoverInNote ?? false)
         .onChange(async (value) => {
           this.plugin.settings.embedCoverInNote = value;
+          await this.plugin.saveSettings();
+        }));
+
+    // 목차 강제 API 우선
+    new Setting(containerEl)
+      .setName('목차 강제 API 우선')
+      .setDesc('목차를 먼저 API로 요청하고, 실패 시 HTML 파싱으로 폴백합니다. 일부 환경에서 더 안정적입니다.')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.tocApiFirst ?? false)
+        .onChange(async (value) => {
+          this.plugin.settings.tocApiFirst = value;
           await this.plugin.saveSettings();
         }));
 
@@ -155,6 +177,28 @@ export class KyobobookSettingTab extends PluginSettingTab {
           this.plugin.settings.noteTemplate = DEFAULT_SETTINGS.noteTemplate;
           await this.plugin.saveSettings();
           this.display(); // 설정 탭 새로고침
+        }));
+
+    // 파일 로깅
+    new Setting(containerEl)
+      .setName('파일 로깅 활성화')
+      .setDesc('실행 로그를 Vault 파일에 저장합니다. 문제 재현 로그 공유에 유용합니다.')
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.enableFileLogging ?? true)
+        .onChange(async (value) => {
+          this.plugin.settings.enableFileLogging = value;
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName('로그 파일 경로')
+      .setDesc('Vault 기준 상대 경로. 예: .obsidian/plugins/kyobobook-plugin/kyobobook.log')
+      .addText(text => text
+        .setPlaceholder('.obsidian/plugins/kyobobook-plugin/kyobobook.log')
+        .setValue(this.plugin.settings.logFilePath || '.obsidian/plugins/kyobobook-plugin/kyobobook.log')
+        .onChange(async (value) => {
+          this.plugin.settings.logFilePath = value || '.obsidian/plugins/kyobobook-plugin/kyobobook.log';
+          await this.plugin.saveSettings();
         }));
   }
 }

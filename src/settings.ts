@@ -8,7 +8,6 @@ authors: "{{authors}}"
 publisher: "{{publisher}}"
 publishDate: "{{publishDate}}"
 isbn: "{{isbn}}"
-pages: "{{pages}}"
 categories: {{categories}}
 tags: {{tags}}
 rating: "{{rating}}"
@@ -26,7 +25,6 @@ created: "{{created}}"
 - 출판사: {{publisher}}
 - 출판일: {{publishDate}}
 - ISBN: {{isbn}}
-- 페이지: {{pages}}
 
 ## 책 소개
 {{description}}
@@ -45,6 +43,10 @@ created: "{{created}}"
   debugMode: false,
   strictDetailPrefetch: false,
   enforceStaticCover: false,
-  prefetchCount: 8,
-  embedCoverInNote: false
+  prefetchCount: 3,
+  embedCoverInNote: false,
+  tocApiFirst: false,
+  enableFileLogging: true,
+  logFilePath: '.obsidian/plugins/kyobobook-plugin/kyobobook.log',
+  disablePrefetch: false
 };

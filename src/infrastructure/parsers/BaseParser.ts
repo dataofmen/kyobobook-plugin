@@ -38,6 +38,26 @@ export abstract class BaseParser {
   }
 
   /**
+   * 문서 전체에서 특정 속성명들의 값을 수집 (필터 정규식으로 거르기)
+   */
+  protected collectAttributeValues(
+    attrNames: string[],
+    filter?: RegExp
+  ): string[] {
+    const results: string[] = [];
+    const all = this.document.querySelectorAll('*');
+    for (const el of Array.from(all)) {
+      for (const name of attrNames) {
+        const val = (el as HTMLElement).getAttribute?.(name);
+        if (val) {
+          if (!filter || filter.test(val)) results.push(val);
+        }
+      }
+    }
+    return Array.from(new Set(results));
+  }
+
+  /**
    * 특정 요소 내부에서 선택자로 단일 요소 찾기
    */
   protected queryWithin(root: Element, selector: string): Element | null {

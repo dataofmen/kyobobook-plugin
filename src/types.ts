@@ -42,6 +42,13 @@ export interface KyobobookPluginSettings {
   prefetchCount?: number;
   // 노트에 표지를 data URL로 내장
   embedCoverInNote?: boolean;
+  // 목차를 API로 우선 시도
+  tocApiFirst?: boolean;
+  // 파일 로깅 사용 및 경로
+  enableFileLogging?: boolean;
+  logFilePath?: string; // vault 상대 경로
+  // 검색 직후 상세 선조회 완전 비활성화(속도 우선)
+  disablePrefetch?: boolean;
 }
 
 // 레거시 호환성을 위한 검색 결과 (deprecated)

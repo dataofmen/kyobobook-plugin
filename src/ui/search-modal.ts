@@ -106,7 +106,7 @@ export class KyobobookSearchModal extends SuggestModal<Book> {
       this.books = searchResult.books;
 
       // 엄격 모드: 상단 N개 상세 선조회로 썸네일/기본정보 보강
-      if (this.plugin.settings.strictDetailPrefetch) {
+      if (this.plugin.settings.strictDetailPrefetch && !this.plugin.settings.disablePrefetch) {
         const n = Math.min(this.plugin.settings.prefetchCount ?? 8, this.books.length);
         if (n > 0) {
           await this.prefetchDetails(this.books.slice(0, n));
@@ -224,7 +224,7 @@ export class KyobobookSearchModal extends SuggestModal<Book> {
       if (!attemptedDetailFetch) {
         attemptedDetailFetch = true;
         try {
-          const detail = await this.bookService.getBookDetail(book.id, 8000);
+          const detail = await this.bookService.getBookDetail(book.id, 8000, { tocApiFirst: this.plugin.settings.tocApiFirst });
           if (detail.book.coverImageUrl && detail.book.coverImageUrl !== coverImg.src) {
             this.logger.debug('SearchModal', '상세정보 기반 커버 재시도');
             tryLoadCover(detail.book.coverImageUrl);
@@ -243,7 +243,7 @@ export class KyobobookSearchModal extends SuggestModal<Book> {
       // 초기에 썸네일이 없으면 상세 정보로 보강 시도
       (async () => {
         try {
-          const detail = await this.bookService.getBookDetail(book.id, 8000);
+          const detail = await this.bookService.getBookDetail(book.id, 8000, { tocApiFirst: this.plugin.settings.tocApiFirst });
           tryLoadCover(detail.book.coverImageUrl || initialCover);
         } catch {
           this.showImagePlaceholder(el, coverImg);
@@ -310,7 +310,7 @@ export class KyobobookSearchModal extends SuggestModal<Book> {
 
     try {
       // BookService를 통한 상세 정보 가져오기
-      const detailResult = await this.bookService.enrichBook(book, 15000);
+      const detailResult = await this.bookService.enrichBook(book, 15000, { tocApiFirst: this.plugin.settings.tocApiFirst });
       const enrichedBook = detailResult.book;
 
       this.logger.info('SearchModal',
@@ -405,19 +405,23 @@ export class KyobobookSearchModal extends SuggestModal<Book> {
 
   // 상세 선조회(엄격 모드): 병렬 제한 없이 순차로 n개 보강 (과한 트래픽 방지)
   private async prefetchDetails(items: Book[]): Promise<void> {
-    for (let i = 0; i < items.length; i++) {
-      const b = items[i];
-      try {
-        const detail = await this.bookService.getBookDetail(b.id, 12000);
-        // in-place 업데이트
-        items[i] = detail.book;
-        // 전체 리스트에도 반영
-        const idx = this.books.findIndex(x => x.id === b.id);
-        if (idx >= 0) this.books[idx] = detail.book;
-      } catch (e) {
-        this.logger.warn('SearchModal', '선조회 실패', { id: b.id, error: e });
+    const concurrency = 2;
+    let index = 0;
+    const worker = async () => {
+      while (index < items.length) {
+        const i = index++;
+        const b = items[i];
+        try {
+          const detail = await this.bookService.getBookDetail(b.id, 12000, { tocApiFirst: this.plugin.settings.tocApiFirst });
+          items[i] = detail.book;
+          const idx = this.books.findIndex(x => x.id === b.id);
+          if (idx >= 0) this.books[idx] = detail.book;
+        } catch (e) {
+          this.logger.warn('SearchModal', '선조회 실패', { id: b.id, error: e });
+        }
       }
-    }
+    };
+    await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, () => worker()));
   }
 
   private generateFileName(book: Book): string {

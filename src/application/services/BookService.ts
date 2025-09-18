@@ -166,7 +166,7 @@ export class BookService {
   /**
    * 도서 상세 정보 조회
    */
-  async getBookDetail(bookId: string, timeout = 10000): Promise<BookDetailResult> {
+  async getBookDetail(bookId: string, timeout = 10000, options: { tocApiFirst?: boolean } = {}): Promise<BookDetailResult> {
     const startTime = Date.now();
 
     this.logger.debug('BookService', `도서 상세 정보 조회: ${bookId}`);
@@ -176,25 +176,35 @@ export class BookService {
       const cacheKey = `detail:${bookId}`;
       if (this.cache?.has(cacheKey)) {
         const cachedBook = this.cache.get(cacheKey)!;
-        this.logger.debug('BookService', '캐시에서 상세 정보 반환');
-
-        return {
-          book: cachedBook,
-          parseResults: {
-            successRate: 100,
-            totalFields: 0,
-            successfulFields: 0,
-            isbn: true,
-            pages: true,
-            description: true,
-            tableOfContents: true,
-            categories: true,
-            rating: true,
-            coverImage: true,
-            errors: []
-          },
-          fetchTime: Date.now() - startTime
-        };
+        // 캐시된 객체가 검색 단계의 축약 정보인지 검증(핵심 필드 없으면 무시)
+        const hasEnriched = Boolean(
+          (cachedBook.description && cachedBook.description.trim().length > 0) ||
+          (cachedBook.tableOfContents && cachedBook.tableOfContents.trim().length > 0) ||
+          (cachedBook.isbn && cachedBook.isbn.trim().length >= 10) ||
+          (typeof cachedBook.pages === 'number' && cachedBook.pages > 0)
+        );
+        if (hasEnriched) {
+          this.logger.debug('BookService', '캐시에서 상세 정보 반환');
+          return {
+            book: cachedBook,
+            parseResults: {
+              successRate: 100,
+              totalFields: 0,
+              successfulFields: 0,
+              isbn: true,
+              pages: true,
+              description: true,
+              tableOfContents: true,
+              categories: true,
+              rating: true,
+              coverImage: true,
+              errors: []
+            },
+            fetchTime: Date.now() - startTime
+          };
+        } else {
+          this.logger.debug('BookService', '캐시 히트 무시(축약 데이터) → 원본 상세 요청 진행');
+        }
       }
 
       // 상세 페이지 URL 생성
@@ -218,19 +228,49 @@ export class BookService {
       const enrichedBook = parser.enrichBook(baseBook);
       const parseResults = parser.getParseResults();
 
+      let finalBook = enrichedBook;
+
+      // 옵션: TOC를 API/발견 경로로 먼저 시도
+      if (options.tocApiFirst) {
+        try {
+          // 1) 인라인 JSON/발견 엔드포인트 우선
+          let toc = await this.fetchTocFromDiscovered(parser, detailUrl, timeout);
+          // 2) 기존 추정 경로 폴백
+          if (!toc) toc = await this.fetchTocFromApi(bookId, timeout);
+          if (toc) {
+            finalBook = BookFactory.update(enrichedBook, { tableOfContents: toc });
+          }
+        } catch (e) {
+          this.logger.warn('BookService', 'TOC API 우선 시도 실패', { bookId, error: e });
+        }
+      }
+
+      // 목차가 비어 있으면 API 폴백 시도
+      if (!finalBook.tableOfContents || finalBook.tableOfContents.trim() === '') {
+        try {
+          let toc = await this.fetchTocFromDiscovered(parser, detailUrl, timeout);
+          if (!toc) toc = await this.fetchTocFromApi(bookId, timeout);
+          if (toc) {
+            finalBook = BookFactory.update(finalBook, { tableOfContents: toc });
+          }
+        } catch (e) {
+          this.logger.warn('BookService', 'TOC API 폴백 실패', { bookId, error: e });
+        }
+      }
+
       // 캐시에 저장
       if (this.cache) {
-        this.cache.set(cacheKey, enrichedBook);
+        this.cache.set(cacheKey, finalBook);
       }
 
       const result: BookDetailResult = {
-        book: enrichedBook,
+        book: finalBook,
         parseResults,
         fetchTime: Date.now() - startTime
       };
 
       this.logger.info('BookService',
-        `상세 정보 조회 완료: ${enrichedBook.title} (${result.fetchTime}ms)`);
+        `상세 정보 조회 완료: ${finalBook.title} (${result.fetchTime}ms)`);
 
       return result;
 
@@ -251,10 +291,104 @@ export class BookService {
   }
 
   /**
+   * 교보 API 폴백으로 목차 요청 시도
+   */
+  private async fetchTocFromApi(bookId: string, timeout = 10000): Promise<string | null> {
+    // 일반적으로는 S 접두 포함 ID 그대로 사용
+    const id = bookId.startsWith('S') ? bookId : `S${bookId}`;
+    const candidates = [
+      `https://product.kyobobook.co.kr/api/product/${id}/toc`
+    ];
+    for (const url of candidates) {
+      try {
+        const json = await this.httpClient.get(url, { timeout });
+        const data = JSON.parse(json);
+        // 다양한 구조 대응
+        if (Array.isArray(data)) {
+          const items = data.map((it: any) => (it && (it.title || it.text || String(it))).toString().trim()).filter(Boolean);
+          if (items.length > 0) return items.join('\n');
+        } else if (data && data.items && Array.isArray(data.items)) {
+          const items = data.items.map((it: any) => (it && (it.title || it.text || String(it))).toString().trim()).filter(Boolean);
+          if (items.length > 0) return items.join('\n');
+        } else if (data && typeof data === 'object') {
+          // 단일 문자열 필드
+          const text = data.toc || data.content || data.text;
+          if (typeof text === 'string' && text.trim()) return text.trim();
+        }
+      } catch (e) {
+        // 다음 후보 시도
+        continue;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 파서가 발견한 엔드포인트/인라인 JSON에서 TOC를 시도
+   */
+  private async fetchTocFromDiscovered(
+    parser: import('../..//infrastructure/parsers/BookDetailParser').BookDetailParser,
+    detailUrl: string,
+    timeout = 10000
+  ): Promise<string | null> {
+    try {
+      // 1) 인라인 JSON 먼저
+      const inline = parser.getInlineJsonToc();
+      if (inline && inline.trim()) return inline.trim();
+
+      // 2) 엔드포인트 후보들 순회
+      const urls = (parser.getDiscoveredTocUrls() || []).slice(0, 4);
+      for (const url of urls) {
+        try {
+          // Referer 헤더를 함께 전달(일부 엔드포인트에서 요구)
+          let body: string;
+          try {
+            body = await (this.httpClient as any).get(url, { timeout, headers: { 'Referer': detailUrl } });
+          } catch {
+            body = await this.httpClient.get(url, { timeout });
+          }
+          const trimmed = body.trim();
+          // JSON일 가능성
+          if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+            try {
+              const data = JSON.parse(trimmed);
+              if (Array.isArray(data)) {
+                const items = data.map((it: any) => (it && (it.title || it.text || String(it))).toString().trim()).filter(Boolean);
+                if (items.length > 0) return items.join('\n');
+              } else if (data && data.items && Array.isArray(data.items)) {
+                const items = data.items.map((it: any) => (it && (it.title || it.text || String(it))).toString().trim()).filter(Boolean);
+                if (items.length > 0) return items.join('\n');
+              } else if (typeof data === 'object') {
+                const text = data.toc || data.content || data.text;
+                if (typeof text === 'string' && text.trim()) return text.trim();
+              }
+            } catch {}
+          }
+          // HTML일 가능성: <br>와 </li>를 줄바꿈으로 처리해 라인화
+          const md = trimmed
+            .replace(/<br\s*\/?>(?=\s*\n?)/gi, '\n')
+            .replace(/<\/(li|p)>/gi, '\n')
+            .replace(/<[^>]+>/g, '')
+            .replace(/\r\n?/g, '\n')
+            .split(/\n+/)
+            .map(l => l.trim())
+            .filter(l => l.length > 1 && l.length < 300);
+          if (md.length > 1) return md.join('\n');
+        } catch (e) {
+          continue;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+    return null;
+  }
+
+  /**
    * 도서 상세 정보로 기존 Book 객체 보강
    */
-  async enrichBook(book: Book, timeout = 10000): Promise<BookDetailResult> {
-    return this.getBookDetail(book.id, timeout);
+  async enrichBook(book: Book, timeout = 10000, options: { tocApiFirst?: boolean } = {}): Promise<BookDetailResult> {
+    return this.getBookDetail(book.id, timeout, options);
   }
 
   /**
@@ -446,12 +580,8 @@ export class BookService {
    * 검색 결과를 캐시에 저장
    */
   private cacheSearchResult(cacheKey: string, result: SearchResult): void {
-    // 개별 Book 객체들을 캐시에 저장
-    if (this.cache) {
-      result.books.forEach(book => {
-        this.cache!.set(`detail:${book.id}`, book);
-      });
-    }
+    // 검색 결과 단계의 Book은 축약 정보이므로 상세 캐시에 저장하지 않음.
+    // 필요시 별도 프리뷰 캐시를 도입할 수 있음.
   }
 
   /**

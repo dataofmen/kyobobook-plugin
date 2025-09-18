@@ -133,8 +133,22 @@ export class TextUtils {
    * 페이지 수 추출
    */
   static extractPages(text: string): number | undefined {
-    const pagePattern = /(\d+)\s*페이지/;
-    return this.extractNumber(text, pagePattern);
+    if (!text) return undefined;
+    // 다양한 표기: "344페이지", "344쪽", "쪽수 344쪽", "p.344"
+    const patterns = [
+      /(\d{1,4})\s*페이지/,
+      /(\d{1,4})\s*쪽/,
+      /쪽수\s*[:\-]?\s*(\d{1,4})\s*쪽?/, // 라벨 기반
+      /p\.?\s*(\d{1,4})\b/i
+    ];
+    for (const p of patterns) {
+      const m = text.match(p);
+      if (m && m[1]) {
+        const num = parseInt(m[1], 10);
+        if (!isNaN(num) && num > 0 && num < 5000) return num;
+      }
+    }
+    return undefined;
   }
 
   /**

@@ -7,6 +7,7 @@ import { BookService } from './application/services/BookService';
 import { KyobobookClientFactory } from './infrastructure/http/KyobobookClient';
 import { BookMemoryCache } from './infrastructure/cache/MemoryCache';
 import { Logger, createDevelopmentLogger, createProductionLogger } from './shared/utils/Logger';
+import { ObsidianFileOutput } from './infrastructure/logging/ObsidianFileOutput';
 import { DebugLogger } from './utils/debug';
 
 export default class KyobobookPlugin extends Plugin {
@@ -89,6 +90,18 @@ export default class KyobobookPlugin extends Plugin {
 
     this.logger.info('KyobobookPlugin', '서비스 레이어 초기화 시작');
 
+    // 파일 로깅 출력 추가(옵션)
+    try {
+      if (this.settings.enableFileLogging) {
+        const path = this.settings.logFilePath || '.obsidian/plugins/kyobobook-plugin/kyobobook.log';
+        const fileOut = new ObsidianFileOutput(this, path, { flushInterval: 1500, maxBuffer: 100 });
+        this.logger.addOutput(fileOut as any);
+        this.logger.info('KyobobookPlugin', `파일 로깅 활성화: ${path}`);
+      }
+    } catch (e) {
+      this.logger.warn('KyobobookPlugin', '파일 로깅 초기화 실패', { error: e });
+    }
+
     // HTTP 클라이언트 초기화
     this.httpClient = this.settings.debugMode
       ? KyobobookClientFactory.createDevelopmentClient(this.logger)
@@ -134,6 +147,31 @@ export default class KyobobookPlugin extends Plugin {
       name: '교보문고 도서 검색',
       callback: () => {
         this.openSearchModal();
+      }
+    });
+
+    // 로그 파일 열기 커맨드
+    this.addCommand({
+      id: 'open-kyobobook-log',
+      name: 'Kyobobook 로그 파일 열기',
+      callback: async () => {
+        const path = this.settings.logFilePath || '.obsidian/plugins/kyobobook-plugin/kyobobook.log';
+        try {
+          const adapter = this.app.vault.adapter;
+          const exists = await adapter.exists(path);
+          if (!exists) {
+            await adapter.write(path, '');
+          }
+          const file = this.app.vault.getAbstractFileByPath(path);
+          if (file && file instanceof (this.app.vault as any).constructor.TFile) {
+            await this.app.workspace.getLeaf().openFile(file as any);
+          } else {
+            // @ts-ignore - open with system if not a vault file
+            new Notice(`로그 파일 경로: ${path}`);
+          }
+        } catch (e) {
+          this.logger.warn('KyobobookPlugin', '로그 파일 열기 실패', { error: e });
+        }
       }
     });
 
