@@ -1,8 +1,11 @@
 /* 교보문고 플러그인 스타일 */
 
 /* 모달 닫기 버튼 숨김 (불필요한 X 표시 제거) */
+/* 모달 우측 상단 닫기(X) 아이콘 제거 */
 .kyobobook-search-modal .modal-close-button,
 .kyobobook-search-modal .modal-close,
+.kyobobook-search-modal .mod-close,
+.kyobobook-search-modal .clickable-icon.mod-close,
 .kyobobook-search-modal [aria-label="Close"],
 .kyobobook-search-modal button[aria-label="Close"] {
   display: none !important;
@@ -17,34 +20,90 @@
   margin-bottom: 10px;
 }
 
+/* 상단 검색 영역 레이아웃 */
 .kyobobook-search-container {
   display: flex;
-  justify-content: center;
-  margin: 10px 0;
-  padding: 0 20px;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 12px;
+  padding: 0 16px;
 }
 
+/* 입력창(Obsidian 기본 prompt-input 커스텀) */
+.kyobobook-search-modal .prompt-input,
+.kyobobook-search-modal input[type="text"] {
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  border-radius: 10px;
+  padding: 10px 12px;
+  height: 38px;
+}
+
+.kyobobook-search-modal .prompt-input::placeholder,
+.kyobobook-search-modal input[type="text"]::placeholder {
+  color: var(--text-muted);
+}
+
+.kyobobook-search-modal .prompt-input:focus,
+.kyobobook-search-modal input[type="text"]:focus {
+  outline: none;
+  border-color: var(--interactive-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--interactive-accent) 25%, transparent);
+}
+
+/* 검색 버튼 */
 .kyobobook-search-button {
-  background-color: var(--interactive-accent);
+  position: relative;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--interactive-accent) 94%, white 6%), var(--interactive-accent));
   color: var(--text-on-accent);
-  border: none;
-  border-radius: 6px;
-  padding: 8px 16px;
+  border: 0;
+  border-radius: 10px;
+  padding: 9px 16px 9px 40px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
-  transition: background-color 0.2s ease;
-  min-width: 80px;
+  transition: transform 0.06s ease, filter 0.15s ease;
+  min-width: 92px;
+}
+
+/* 돋보기 아이콘 (CSS만으로 구현) */
+.kyobobook-search-button::before {
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--text-on-accent);
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+.kyobobook-search-button::after {
+  content: '';
+  position: absolute;
+  left: 26px;
+  top: 60%;
+  width: 8px;
+  height: 2px;
+  background: var(--text-on-accent);
+  transform: rotate(45deg);
+  border-radius: 1px;
 }
 
 .kyobobook-search-button:hover {
-  background-color: var(--interactive-accent-hover);
+  filter: brightness(1.06);
 }
 
 .kyobobook-search-button:disabled {
   background-color: var(--background-modifier-border);
   color: var(--text-muted);
   cursor: not-allowed;
+}
+
+.kyobobook-search-button:active {
+  transform: translateY(1px);
 }
 
 .kyobobook-search-modal .suggestion-item {
@@ -54,6 +113,7 @@
   border: 1px solid var(--background-modifier-border);
   border-radius: 5px;
   margin-bottom: 8px;
+  background: var(--background-primary);
 }
 
 .kyobobook-search-modal .suggestion-item.is-selected {
