@@ -175,28 +175,47 @@ export class TextUtils {
   static normalizeDateString(dateString: string): string | undefined {
     if (!dateString) return undefined;
 
-    // 다양한 날짜 형식 패턴
+    // 기본 정리: 공백/개행/HTML 엔티티/요일 괄호 제거
+    let input = this.clean(dateString)
+      .replace(/\u00A0/g, ' ')                // NBSP → space
+      .replace(/\((월|화|수|목|금|토|일)\)/g, '') // (월) 같은 요일 표기 제거
+      .replace(/[\u2460-\u2473]/g, '')       // ①~⑳ 등 주석 표기 제거
+      .replace(/[※＊◆▶◀•·]+/g, ' ')            // 각종 마커 제거
+      .replace(/예정|발간예정|출간예정|예약판매|출시예정/g, '') // 부가어 제거
+      .trim();
+
+    // 다양한 날짜 형식 패턴 (공백 허용, '일자' 허용)
     const patterns = [
-      /(\d{4})[년\-\.\/](\d{1,2})[월\-\.\/](\d{1,2})[일]?/,
-      /(\d{4})[년\-\.\/](\d{1,2})/,
+      // 2025-06-02T00:00:00Z, 2025-06-02 00:00, 2025-06-02
+      /(\d{4})-(\d{1,2})-(\d{1,2})(?:[T\s].*)?/, 
+      // 2025.06.02 또는 2025. 6. 2
+      /(\d{4})\s*[\.\/]\s*(\d{1,2})\s*[\.\/]\s*(\d{1,2})/,
+      // 2025년 06월 02일 / 2025년06월02일
+      /(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*(?:일|일자)?/,
+      // 2025년 06월 / 2025.06 (월까지만)
+      /(\d{4})\s*[년\.\-\/]\s*(\d{1,2})\s*(?:월)?/,
+      // 연도만
       /(\d{4})/
     ];
 
-    for (const pattern of patterns) {
-      const match = dateString.match(pattern);
+    for (let i = 0; i < patterns.length; i++) {
+      const pattern = patterns[i];
+      const match = input.match(pattern);
+
       if (match) {
         const year = match[1];
-        const month = match[2] ? match[2].padStart(2, '0') : '01';
-        const day = match[3] ? match[3].padStart(2, '0') : '01';
+        const month = match[2] ? match[2].padStart(2, '0') : undefined;
+        const day = match[3] ? match[3].padStart(2, '0') : undefined;
 
         // 유효한 날짜인지 확인
-        const date = new Date(`${year}-${month}-${day}`);
-        if (!isNaN(date.getTime())) {
-          return `${year}-${month}-${day}`;
+        if (year && month && day) {
+          const date = new Date(`${year}-${month}-${day}`);
+          if (!isNaN(date.getTime())) {
+            return `${year}-${month}-${day}`;
+          }
         }
       }
     }
-
     return undefined;
   }
 

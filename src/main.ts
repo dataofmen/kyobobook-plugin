@@ -107,10 +107,12 @@ export default class KyobobookPlugin extends Plugin {
       ? KyobobookClientFactory.createDevelopmentClient(this.logger)
       : KyobobookClientFactory.createProductionClient(this.logger);
 
-    // 캐시 초기화
+    // 캐시 초기화 (설정값이 없다면 기본값 사용)
+    const defaultMaxSize = 200;
+    const defaultTtlMs = 60 * 60 * 1000; // 60분
     this.cache = new BookMemoryCache(
-      this.settings.maxCacheSize || 200,
-      (this.settings.cacheTimeoutMinutes || 60) * 60 * 1000,
+      defaultMaxSize,
+      defaultTtlMs,
       this.logger
     );
 

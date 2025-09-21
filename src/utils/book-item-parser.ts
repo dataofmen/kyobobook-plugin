@@ -194,14 +194,8 @@ export class BookItemParser {
       }
     }
 
-    // 텍스트에서 출판 날짜 패턴 찾기
-    const textContent = this.element.textContent || '';
-    const datePattern = /(\d{4})[년\-\.\/](\d{1,2})[월\-\.\/](\d{1,2})[일]?/;
-    const dateMatch = textContent.match(datePattern);
-    if (dateMatch) {
-      publishDate = `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`;
-      DebugLogger.log('BOOK_PARSER', `출판일 추출: ${publishDate}`);
-    }
+    // 검색 결과에서는 출판일 정보가 부정확할 수 있으므로 상세 페이지에서만 추출
+    DebugLogger.log('BOOK_PARSER', '검색 결과에서는 출판일 추출을 건너뜀 (상세 페이지에서 정확한 정보 추출)');
 
     return { publisher, publishDate };
   }

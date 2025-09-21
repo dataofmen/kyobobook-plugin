@@ -1,9 +1,9 @@
 // 검색 결과 파싱 클래스 (분리 및 최적화)
 
 import { BaseParser } from './BaseParser';
-import { Book, CreateBookInput, BookFactory } from '../../domain/models/Book';
+import { Book, BookFactory } from '../../domain/models/Book';
 import { ParseError } from '../../domain/models/Errors';
-import { SELECTORS, PATTERNS, KEYWORDS, LIMITS } from '../../shared/constants/selectors';
+import { SELECTORS, KEYWORDS, LIMITS } from '../../shared/constants/selectors';
 import { TextUtils } from '../../shared/utils/TextUtils';
 import { UrlUtils } from '../../shared/utils/UrlUtils';
 
@@ -132,7 +132,6 @@ export class SearchResultParser extends BaseParser {
   private findBookContainer(link: Element): Element | null {
     return this.findAncestor(link, (element) => {
       const className = element.className?.toLowerCase() || '';
-      const tagName = element.tagName.toLowerCase();
 
       // 상품 컨테이너로 보이는 패턴
       const containerPatterns = [
@@ -222,7 +221,7 @@ export class SearchResultParser extends BaseParser {
     }
 
     // 3. Book 객체 생성
-    const bookInput: CreateBookInput = {
+    const bookInput = {
       id: bookId,
       title: TextUtils.cleanTitle(title),
       authors: authors.length > 0 ? authors : ['저자미상'],
@@ -349,9 +348,10 @@ export class SearchResultParser extends BaseParser {
       publisher = TextUtils.cleanPublisher(this.extractText(publisherElement));
     }
 
-    // 출판일 추출 (전체 텍스트에서)
-    const itemText = this.extractText(item);
-    publishDate = TextUtils.normalizeDateString(itemText) || '';
+    // 검색 결과에서는 출판일 정보가 부정확할 수 있으므로 상세 페이지에서만 추출
+    // const itemText = this.extractText(item);
+    // publishDate = TextUtils.normalizeDateString(itemText) || '';
+    publishDate = ''; // 상세 페이지에서 정확한 정보 추출
 
     return { publisher, publishDate };
   }

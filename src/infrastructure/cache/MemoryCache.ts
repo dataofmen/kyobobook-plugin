@@ -210,7 +210,6 @@ export class MemoryCache<T = any> {
    */
   cleanup(): void {
     const before = this.cache.size;
-    const now = Date.now();
 
     for (const [key, entry] of this.cache.entries()) {
       if (this.isExpired(entry)) {
@@ -317,14 +316,7 @@ export class BookMemoryCache extends MemoryCache<Book> implements BookCache {
   /**
    * 검색 결과 캐시
    */
-  cacheSearchResult(
-    query: string,
-    maxResults: number,
-    enableDetailFetch: boolean,
-    books: Book[]
-  ): void {
-    const cacheKey = BookMemoryCache.buildSearchCacheKey(query, maxResults, enableDetailFetch);
-
+  cacheSearchResult(books: Book[]): void {
     // 검색 결과 자체는 별도로 저장하지 않고, 개별 Book 들만 저장
     // (BookService에서 검색 결과 전체 캐싱은 복잡하므로 단순화)
     books.forEach(book => {

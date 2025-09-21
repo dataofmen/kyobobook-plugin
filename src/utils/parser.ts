@@ -357,68 +357,146 @@ export class BookDetailParser {
     return hasValidPattern && !hasInvalidPattern;
   }
 
-  // 제목 다음의 컨텐츠 요소 찾기 (목차용)
-  private findContentAfterTitle(titleElement: Element): Element | null {
-    // 다양한 방법으로 컨텐츠 찾기
-    const searchTargets = [
-      titleElement.nextElementSibling,
-      titleElement.parentElement?.nextElementSibling,
-      titleElement.parentElement?.parentElement?.nextElementSibling
-    ];
-
-    for (const target of searchTargets) {
-      if (!target) continue;
-
-      // .info_text나 적절한 컨텐츠 클래스 찾기
-      const contentSelectors = [
-        '.info_text',
-        '.content_text',
-        '.description_text',
-        '[class*="text"]',
-        '[class*="content"]'
-      ];
-
-      for (const selector of contentSelectors) {
-        const contentEl = target.querySelector(selector);
-        if (contentEl && contentEl.textContent && contentEl.textContent.trim().length > 50) {
-          return contentEl;
-        }
-      }
-
-      // 직접 텍스트가 충분한 경우
-      if (target.textContent && target.textContent.trim().length > 100) {
-        return target;
-      }
-    }
-
-    return null;
-  }
+  // 제목 다음 컨텐츠 탐색 메서드(미사용) 제거
 
   extractPublisherInfo(): { publisher: string; publishDate: string } {
-    const selectors = [
+    console.log('=== 출판사/출판일 정보 추출 시작 ===');
+
+    // 1. 교보문고 특정 선택자들
+    const publisherSelectors = [
       '.prod_publish',
       '.book_publish',
       '.publisher_info',
-      '.pub_info'
+      '.pub_info',
+      '.prod_detail_area .auto_overflow_contents',
+      '.prod_info .info_text',
+      '.prod_info_detail',
+      '[class*="publish"]',
+      '[class*="publisher"]'
     ];
 
-    for (const selector of selectors) {
-      const element = this.doc.querySelector(selector);
-      if (element) {
-        const text = this.cleanText(element.textContent || '');
+    // 2. 상세 정보 영역에서 출판사와 출판일 찾기
+    for (const selector of publisherSelectors) {
+      const elements = this.doc.querySelectorAll(selector);
+      console.log(`선택자 "${selector}": ${elements.length}개 요소 발견`);
 
-        // 출판사와 출판일 분리
-        const parts = text.split('|').map(part => part.trim());
-        if (parts.length >= 2) {
-          return {
-            publisher: parts[0],
-            publishDate: parts[1]
-          };
+      for (const element of Array.from(elements)) {
+        const text = this.cleanText(element.textContent || '');
+        console.log(`텍스트 내용: "${text}"`);
+
+        if (text.length > 5) {
+          const result = this.parsePublisherText(text);
+          if (result.publisher || result.publishDate) {
+            console.log('출판사/출판일 추출 성공:', result);
+            return result;
+          }
         }
       }
     }
 
+    // 3. 전체 텍스트에서 패턴 검색
+    const bodyText = this.doc.body?.textContent || '';
+    console.log('전체 텍스트에서 패턴 검색 시작');
+
+    // 출판사 패턴 검색
+    const publisherMatch = bodyText.match(/출판사[:\s]*([^|\n]+)/);
+
+    // 출판일 패턴 검색 (다양한 형식 지원)
+    const datePatterns = [
+      /출간일?[:\s]*(\d{4}[.년-]\s*\d{1,2}[.월-]\s*\d{1,2})/,
+      /출판일?[:\s]*(\d{4}[.년-]\s*\d{1,2}[.월-]\s*\d{1,2})/,
+      /발행일?[:\s]*(\d{4}[.년-]\s*\d{1,2}[.월-]\s*\d{1,2})/,
+      /(\d{4}[.년-]\s*\d{1,2}[.월-]\s*\d{1,2}일?)/,
+      /(\d{4}\.\d{2}\.\d{2})/,
+      /(\d{4}-\d{2}-\d{2})/
+    ];
+
+    let publishDate = '';
+    for (const pattern of datePatterns) {
+      const match = bodyText.match(pattern);
+      if (match) {
+        publishDate = this.formatDate(match[1]);
+        console.log(`날짜 패턴 매칭 성공: ${match[1]} → ${publishDate}`);
+        break;
+      }
+    }
+
+    const publisher = publisherMatch ? this.cleanText(publisherMatch[1]) : '';
+
+    if (publisher || publishDate) {
+      const result = { publisher, publishDate };
+      console.log('패턴 검색으로 출판사/출판일 추출 성공:', result);
+      return result;
+    }
+
+    console.log('출판사/출판일 추출 실패');
     return { publisher: '', publishDate: '' };
+  }
+
+  private parsePublisherText(text: string): { publisher: string; publishDate: string } {
+    // 다양한 분리 패턴 시도
+    const separators = ['|', '·', '/', '\\', '｜', '／'];
+
+    for (const separator of separators) {
+      if (text.includes(separator)) {
+        const parts = text.split(separator).map(part => part.trim());
+
+        // 출판사와 날짜 식별
+        let publisher = '';
+        let publishDate = '';
+
+        for (const part of parts) {
+          // 날짜 패턴 확인
+          if (this.isDatePattern(part)) {
+            publishDate = this.formatDate(part);
+          }
+          // 출판사로 보이는 텍스트 (날짜가 아니고 적절한 길이)
+          else if (!this.isDatePattern(part) && part.length > 1 && part.length < 50) {
+            if (!publisher || part.length > publisher.length) {
+              publisher = part;
+            }
+          }
+        }
+
+        if (publisher || publishDate) {
+          return { publisher, publishDate };
+        }
+      }
+    }
+
+    // 분리자가 없는 경우 날짜 패턴만 추출
+    if (this.isDatePattern(text)) {
+      return { publisher: '', publishDate: this.formatDate(text) };
+    }
+
+    return { publisher: '', publishDate: '' };
+  }
+
+  private isDatePattern(text: string): boolean {
+    const datePatterns = [
+      /\d{4}[.년-]\s*\d{1,2}[.월-]\s*\d{1,2}/,
+      /\d{4}\.\d{2}\.\d{2}/,
+      /\d{4}-\d{2}-\d{2}/,
+      /\d{4}년\s*\d{1,2}월\s*\d{1,2}일?/
+    ];
+
+    return datePatterns.some(pattern => pattern.test(text));
+  }
+
+  private formatDate(dateStr: string): string {
+    // 날짜 문자열을 표준 형식으로 변환
+    const cleaned = dateStr.replace(/[년월일\s]/g, '').replace(/[-]/g, '.');
+
+    // YYYY.MM.DD 형식으로 변환
+    const match = cleaned.match(/(\d{4})\.?(\d{1,2})\.?(\d{1,2})/);
+    if (match) {
+      const year = match[1];
+      const month = match[2].padStart(2, '0');
+      const day = match[3].padStart(2, '0');
+      return `${year}.${month}.${day}`;
+    }
+
+    return dateStr;
   }
 
   private cleanText(text: string): string {

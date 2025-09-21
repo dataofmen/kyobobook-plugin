@@ -368,7 +368,7 @@ export class KyobobookSearchModal extends SuggestModal<Book> {
         pages: book.pages?.toString() || '',
         description: book.description || '',
         toc: book.tableOfContents || '',
-        categories: book.categories?.join(', ') || '',
+        categories: Array.from(book.categories || []),
         rating: book.rating?.toString() || '',
         coverImage: coverForNote || '',
         url: book.detailPageUrl || '',

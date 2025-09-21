@@ -1,6 +1,6 @@
 // 도서 검색 및 정보 조회 서비스
 
-import { Book, CreateBookInput, BookFactory } from '../../domain/models/Book';
+import { Book, BookFactory } from '../../domain/models/Book';
 import { NetworkError, SearchError, ParseError } from '../../domain/models/Errors';
 import { SearchResultParser } from '../../infrastructure/parsers/SearchResultParser';
 import { BookDetailParser } from '../../infrastructure/parsers/BookDetailParser';
@@ -108,7 +108,7 @@ export class BookService {
       const cacheKey = this.buildSearchCacheKey(query, mergedOptions);
       if (mergedOptions.cacheResults && this.cache?.has(cacheKey)) {
         this.logger.debug('BookService', '캐시에서 검색 결과 반환');
-        return this.getCachedSearchResult(cacheKey, query, startTime);
+        return this.getCachedSearchResult(query, startTime);
       }
 
       // 검색 URL 생성
@@ -138,9 +138,7 @@ export class BookService {
       };
 
       // 캐시에 저장
-      if (mergedOptions.cacheResults && this.cache) {
-        this.cacheSearchResult(cacheKey, result);
-      }
+      // 검색 결과 전체를 캐시에 저장하는 기능은 비활성화 (단순화)
 
       this.logger.info('BookService',
         `검색 완료: ${enrichedBooks.length}권 발견 (${result.searchTime}ms)`);
@@ -183,7 +181,19 @@ export class BookService {
           (cachedBook.isbn && cachedBook.isbn.trim().length >= 10) ||
           (typeof cachedBook.pages === 'number' && cachedBook.pages > 0)
         );
-        if (hasEnriched) {
+
+        // 출판일 유효성 검사: 연도만/의심 값(01-01, 01. 01, 특수문자 포함 등)이면 강제로 재조회
+        const isSuspiciousDate = (d?: string): boolean => {
+          if (!d) return true;
+          const s = d.trim();
+          if (/^[0-9]{4}$/.test(s)) return true;                   // 연도만
+          if (/^[0-9]{4}[\.-]01[\.-]01$/.test(s)) return true;   // 01-01 보정 패턴
+          if (/[\u2460-\u2473]/.test(s)) return true;            // ①~⑳ 포함
+          return false;
+        };
+        const hasValidPublishDate = !isSuspiciousDate(cachedBook.publishDate);
+
+        if (hasEnriched && hasValidPublishDate) {
           this.logger.debug('BookService', '캐시에서 상세 정보 반환');
           return {
             book: cachedBook,
@@ -203,7 +213,7 @@ export class BookService {
             fetchTime: Date.now() - startTime
           };
         } else {
-          this.logger.debug('BookService', '캐시 히트 무시(축약 데이터) → 원본 상세 요청 진행');
+          this.logger.debug('BookService', '캐시 히트 무시(축약/의심 출판일) → 원본 상세 요청 진행', { publishDate: cachedBook.publishDate });
         }
       }
 
@@ -496,8 +506,8 @@ export class BookService {
         if (!html || html.trim().length === 0) {
           throw new NetworkError(
             '빈 응답을 받았습니다',
-            'BookService',
-            { url, attempt }
+            undefined,
+            { url, attempt, source: 'BookService' }
           );
         }
 
@@ -520,8 +530,8 @@ export class BookService {
 
     throw new NetworkError(
       `네트워크 요청이 ${maxRetries}회 실패했습니다`,
-      'BookService',
-      { url, maxRetries },
+      undefined,
+      { url, maxRetries, source: 'BookService' },
       lastError
     );
   }
@@ -553,7 +563,6 @@ export class BookService {
    * 캐시에서 검색 결과 가져오기
    */
   private getCachedSearchResult(
-    cacheKey: string,
     query: string,
     startTime: number
   ): SearchResult {
@@ -579,10 +588,7 @@ export class BookService {
   /**
    * 검색 결과를 캐시에 저장
    */
-  private cacheSearchResult(cacheKey: string, result: SearchResult): void {
-    // 검색 결과 단계의 Book은 축약 정보이므로 상세 캐시에 저장하지 않음.
-    // 필요시 별도 프리뷰 캐시를 도입할 수 있음.
-  }
+  // 검색 결과 캐시는 현재 사용하지 않습니다.
 
   /**
    * 이미지 URL을 data URL로 변환 (가능하면 클라이언트 기능 사용)

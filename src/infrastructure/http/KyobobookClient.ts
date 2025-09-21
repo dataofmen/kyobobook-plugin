@@ -143,7 +143,7 @@ export class KyobobookClient implements HttpClient {
       const base64 = KyobobookClient.arrayBufferToBase64(ab);
       return `data:${guessMime(url)};base64,${base64}`;
     } catch (e) {
-      throw new NetworkError('이미지 데이터 가져오기 실패', 'KyobobookClient', { url }, e as Error);
+      throw new NetworkError('이미지 데이터 가져오기 실패', undefined, { url, source: 'KyobobookClient' }, e as Error);
     }
   }
 
@@ -184,8 +184,8 @@ export class KyobobookClient implements HttpClient {
 
       throw new NetworkError(
         `HTTP 요청이 실패했습니다: ${url}`,
-        'KyobobookClient',
-        { url, method, originalError: error instanceof Error ? error.message : String(error) },
+        undefined,
+        { url, method, source: 'KyobobookClient', originalError: error instanceof Error ? error.message : String(error) },
         error instanceof Error ? error : undefined
       );
     }
@@ -302,8 +302,8 @@ export class KyobobookClient implements HttpClient {
 
     throw new NetworkError(
       `HTTP 요청이 ${options.retries}회 모두 실패했습니다`,
-      'KyobobookClient',
-      { url, method, retries: options.retries },
+      undefined,
+      { url, method, retries: options.retries, source: 'KyobobookClient' },
       lastError
     );
   }
@@ -330,9 +330,8 @@ export class KyobobookClient implements HttpClient {
     let response: any;
 
     try {
-      // @ts-ignore - Obsidian의 requestUrl은 global에 있을 수 있음
-      if (typeof requestUrl !== 'undefined') {
-        response = await requestUrl(requestOptions);
+      if (typeof (globalThis as any).requestUrl !== 'undefined') {
+        response = await (globalThis as any).requestUrl(requestOptions);
       } else if (typeof window !== 'undefined' && (window as any).requestUrl) {
         response = await (window as any).requestUrl(requestOptions);
       } else {
@@ -341,8 +340,8 @@ export class KyobobookClient implements HttpClient {
     } catch (error) {
       throw new NetworkError(
         '네트워크 요청 실행 실패',
-        'KyobobookClient',
-        { url, method, originalError: error instanceof Error ? error.message : String(error) },
+        undefined,
+        { url, method, source: 'KyobobookClient', originalError: error instanceof Error ? error.message : String(error) },
         error instanceof Error ? error : undefined
       );
     }
@@ -351,7 +350,7 @@ export class KyobobookClient implements HttpClient {
     if (response.status < 200 || response.status >= 300) {
       throw new NetworkError(
         `HTTP 오류: ${response.status}`,
-        'KyobobookClient',
+        response.status,
         { url, method, status: response.status, statusText: response.statusText }
       );
     }
@@ -360,8 +359,8 @@ export class KyobobookClient implements HttpClient {
     if (!response.text || typeof response.text !== 'string') {
       throw new NetworkError(
         '빈 응답 또는 잘못된 응답 형식',
-        'KyobobookClient',
-        { url, method, dataType: typeof response.text }
+        undefined,
+        { url, method, dataType: typeof response.text, source: 'KyobobookClient' }
       );
     }
 

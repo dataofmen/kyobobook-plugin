@@ -8,16 +8,19 @@ export abstract class PluginError extends Error {
   abstract readonly category: string;
   readonly timestamp: Date;
   readonly context?: Record<string, unknown>;
+  readonly cause?: Error;
 
   constructor(
     message: string,
     context?: Record<string, unknown>,
     cause?: Error
   ) {
-    super(message, { cause });
+    // 일부 TS/환경에서 ErrorOptions(cause)가 지원되지 않음
+    super(message);
     this.name = this.constructor.name;
     this.timestamp = new Date();
     this.context = context;
+    this.cause = cause;
 
     // Error 객체의 스택 트레이스 설정
     if (Error.captureStackTrace) {
@@ -208,7 +211,7 @@ export class FileSystemError extends PluginError {
   constructor(
     message: string,
     public readonly filePath?: string,
-    public readonly operation?: 'READ' | 'write' | 'create' | 'delete',
+    public readonly operation?: 'read' | 'write' | 'create' | 'delete',
     context?: Record<string, unknown>,
     cause?: Error
   ) {

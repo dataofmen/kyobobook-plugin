@@ -604,4 +604,211 @@ export class BookDetailParser extends BaseHtmlParser {
 
     return hasValidPattern && !hasInvalidPattern;
   }
+
+  extractPublisherInfo(): { publisher: string; publishDate: string } {
+    DebugLogger.log('PUBLISHER_PARSER', '=== 출판사/출판일 정보 추출 시작 ===');
+
+    // 1. 기본정보 테이블에서 추출 (우선순위 1)
+    const tableResult = this.extractFromBasicInfoTable();
+    if (tableResult.publisher || tableResult.publishDate) {
+      DebugLogger.log('PUBLISHER_PARSER', '테이블에서 출판사/출판일 추출 성공:', tableResult);
+      return tableResult;
+    }
+
+    // 2. 교보문고 특정 선택자들 (우선순위 2)
+    const publisherSelectors = [
+      '.prod_publish',
+      '.book_publish',
+      '.publisher_info',
+      '.pub_info',
+      '.prod_detail_area .auto_overflow_contents',
+      '.prod_info .info_text',
+      '.prod_info_detail',
+      '[class*="publish"]',
+      '[class*="publisher"]'
+    ];
+
+    // 3. 상세 정보 영역에서 출판사와 출판일 찾기
+    for (const selector of publisherSelectors) {
+      const elements = this.querySelectorAll(selector);
+      DebugLogger.log('PUBLISHER_PARSER', `선택자 "${selector}": ${elements.length}개 요소 발견`);
+
+      for (const element of Array.from(elements)) {
+        const text = this.cleanText(element.textContent || '');
+        DebugLogger.log('PUBLISHER_PARSER', `텍스트 내용: "${text}"`);
+
+        if (text.length > 5) {
+          const result = this.parsePublisherText(text);
+          if (result.publisher || result.publishDate) {
+            DebugLogger.log('PUBLISHER_PARSER', '출판사/출판일 추출 성공:', result);
+            return result;
+          }
+        }
+      }
+    }
+
+    // 4. 전체 텍스트에서 패턴 검색 (최후 수단)
+    const bodyText = this.doc.body?.textContent || '';
+    DebugLogger.log('PUBLISHER_PARSER', '전체 텍스트에서 패턴 검색 시작');
+
+    // 출판사 패턴 검색
+    const publisherMatch = bodyText.match(/출판사[:\s]*([^|\n]+)/);
+
+    // 출판일 패턴 검색 (다양한 형식 지원)
+    const datePatterns = [
+      /출간일?[:\s]*(\d{4}[.년-]\s*\d{1,2}[.월-]\s*\d{1,2})/,
+      /출판일?[:\s]*(\d{4}[.년-]\s*\d{1,2}[.월-]\s*\d{1,2})/,
+      /발행일?[:\s]*(\d{4}[.년-]\s*\d{1,2}[.월-]\s*\d{1,2})/,
+      /(\d{4}[.년-]\s*\d{1,2}[.월-]\s*\d{1,2}일?)/,
+      /(\d{4}\.\d{2}\.\d{2})/,
+      /(\d{4}-\d{2}-\d{2})/
+    ];
+
+    let publishDate = '';
+    for (const pattern of datePatterns) {
+      const match = bodyText.match(pattern);
+      if (match) {
+        publishDate = this.formatDate(match[1]);
+        DebugLogger.log('PUBLISHER_PARSER', `날짜 패턴 매칭 성공: ${match[1]} → ${publishDate}`);
+        break;
+      }
+    }
+
+    const publisher = publisherMatch ? this.cleanText(publisherMatch[1]) : '';
+
+    if (publisher || publishDate) {
+      const result = { publisher, publishDate };
+      DebugLogger.log('PUBLISHER_PARSER', '패턴 검색으로 출판사/출판일 추출 성공:', result);
+      return result;
+    }
+
+    DebugLogger.log('PUBLISHER_PARSER', '출판사/출판일 추출 실패');
+    return { publisher: '', publishDate: '' };
+  }
+
+  private extractFromBasicInfoTable(): { publisher: string; publishDate: string } {
+    DebugLogger.log('PUBLISHER_PARSER', '기본정보 테이블에서 추출 시작');
+
+    // 스크린샷에서 확인된 테이블 구조
+    const tableSelectors = [
+      '.tbl_row_wrap .tbl_row',
+      '.tbl_row',
+      'table.tbl_row',
+      '.basic_info table',
+      '.prod_detail_area table'
+    ];
+
+    for (const tableSelector of tableSelectors) {
+      const tables = this.querySelectorAll(tableSelector);
+      DebugLogger.log('PUBLISHER_PARSER', `테이블 선택자 "${tableSelector}": ${tables.length}개 테이블 발견`);
+
+      for (const table of Array.from(tables)) {
+        const rows = table.querySelectorAll('tr');
+        DebugLogger.log('PUBLISHER_PARSER', `테이블 행 수: ${rows.length}개`);
+
+        let publisher = '';
+        let publishDate = '';
+
+        for (const row of Array.from(rows)) {
+          const th = row.querySelector('th');
+          const td = row.querySelector('td');
+
+          if (!th || !td) continue;
+
+          const headerText = this.cleanText(th.textContent || '').toLowerCase();
+          const valueText = this.cleanText(td.textContent || '');
+
+          DebugLogger.log('PUBLISHER_PARSER', `테이블 행: "${headerText}" = "${valueText}"`);
+
+          // 출판사 정보 추출
+          if (headerText.includes('출판사') || headerText.includes('출판') || headerText.includes('publisher')) {
+            publisher = valueText;
+            DebugLogger.log('PUBLISHER_PARSER', `출판사 발견: ${publisher}`);
+          }
+
+          // 출판일 정보 추출 (다양한 표현 지원)
+          if (headerText.includes('발행') || headerText.includes('출간') || headerText.includes('출판일') ||
+              headerText.includes('발행일') || headerText.includes('출간일') || headerText.includes('date')) {
+            publishDate = this.formatDate(valueText);
+            DebugLogger.log('PUBLISHER_PARSER', `출판일 발견: ${valueText} → ${publishDate}`);
+          }
+        }
+
+        if (publisher || publishDate) {
+          return { publisher, publishDate };
+        }
+      }
+    }
+
+    DebugLogger.log('PUBLISHER_PARSER', '테이블에서 출판사/출판일을 찾을 수 없음');
+    return { publisher: '', publishDate: '' };
+  }
+
+  private parsePublisherText(text: string): { publisher: string; publishDate: string } {
+    // 다양한 분리 패턴 시도
+    const separators = ['|', '·', '/', '\\', '｜', '／'];
+
+    for (const separator of separators) {
+      if (text.includes(separator)) {
+        const parts = text.split(separator).map(part => part.trim());
+
+        // 출판사와 날짜 식별
+        let publisher = '';
+        let publishDate = '';
+
+        for (const part of parts) {
+          // 날짜 패턴 확인
+          if (this.isDatePattern(part)) {
+            publishDate = this.formatDate(part);
+          }
+          // 출판사로 보이는 텍스트 (날짜가 아니고 적절한 길이)
+          else if (!this.isDatePattern(part) && part.length > 1 && part.length < 50) {
+            if (!publisher || part.length > publisher.length) {
+              publisher = part;
+            }
+          }
+        }
+
+        if (publisher || publishDate) {
+          return { publisher, publishDate };
+        }
+      }
+    }
+
+    // 분리자가 없는 경우 날짜 패턴만 추출
+    if (this.isDatePattern(text)) {
+      return { publisher: '', publishDate: this.formatDate(text) };
+    }
+
+    return { publisher: '', publishDate: '' };
+  }
+
+  private isDatePattern(text: string): boolean {
+    const datePatterns = [
+      /\d{4}[.년-]\s*\d{1,2}[.월-]\s*\d{1,2}/,
+      /\d{4}\.\d{2}\.\d{2}/,
+      /\d{4}-\d{2}-\d{2}/,
+      /\d{4}년\s*\d{1,2}월\s*\d{1,2}일?/
+    ];
+
+    return datePatterns.some(pattern => pattern.test(text));
+  }
+
+  private formatDate(dateStr: string): string {
+    // 날짜 문자열을 표준 형식으로 변환
+    const cleaned = dateStr.replace(/[년월일\s]/g, '').replace(/[-]/g, '.');
+
+    // YYYY.MM.DD 형식으로 변환
+    const match = cleaned.match(/(\d{4})\.?(\d{1,2})\.?(\d{1,2})/);
+    if (match) {
+      const year = match[1];
+      const month = match[2].padStart(2, '0');
+      const day = match[3].padStart(2, '0');
+      return `${year}.${month}.${day}`;
+    }
+
+    return dateStr;
+  }
+
+  // (미사용) 공통 테이블 추출 메서드는 제거되었습니다.
 }

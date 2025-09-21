@@ -153,6 +153,15 @@ export class KyobobookAPI {
       detail.categories = parser.extractCategories();
       detail.rating = parser.extractRating();
 
+      // 출판사와 출판일 정보 추출
+      const publisherInfo = parser.extractPublisherInfo();
+      if (publisherInfo.publisher) {
+        detail.publisher = publisherInfo.publisher;
+      }
+      if (publisherInfo.publishDate) {
+        detail.publishDate = publisherInfo.publishDate;
+      }
+
       const extractedCoverImage = parser.extractCoverImage();
       if (extractedCoverImage) {
         detail.coverImage = extractedCoverImage;
@@ -161,6 +170,8 @@ export class KyobobookAPI {
       DebugLogger.log('BOOK_DETAIL', '상세 정보 파싱 결과', {
         isbn: detail.isbn,
         pages: detail.pages,
+        publisher: detail.publisher,
+        publishDate: detail.publishDate,
         tocLength: detail.toc?.length || 0,
         categories: detail.categories?.length || 0,
         rating: detail.rating,

@@ -367,10 +367,9 @@ export class UrlUtils {
     if (!url) return false;
 
     try {
-      // Obsidian의 requestUrl을 사용하여 헤드 요청
+      // HEAD 요청 (일부 환경에서 timeout 옵션 미지원 → 생략)
       const response = await fetch(url, {
-        method: 'HEAD',
-        timeout: 5000
+        method: 'HEAD'
       });
 
       return response.ok;

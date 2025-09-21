@@ -109,29 +109,9 @@ function formatDescription(description: string): string {
 
 function formatTableOfContents(toc: string): string {
   if (!toc) return '';
-
-  // 목차를 리스트 형태로 포맷팅
-  const lines = toc.split('\n').filter(line => line.trim());
-
-  if (lines.length <= 1) {
-    return toc;
-  }
-
-  // 각 라인을 리스트 아이템으로 변환
-  const formattedLines = lines.map(line => {
-    const trimmed = line.trim();
-    if (trimmed && !trimmed.startsWith('-') && !trimmed.startsWith('*')) {
-      // 숫자로 시작하는 경우 (1. 2. 등)
-      if (/^\d+\./.test(trimmed)) {
-        return `- ${trimmed}`;
-      }
-      // 일반 텍스트
-      return `- ${trimmed}`;
-    }
-    return trimmed;
-  });
-
-  return formattedLines.join('\n');
+  // 요구사항: 모든 <br>를 줄바꿈으로 보존한 상태로 그대로 삽입한다.
+  // 여기서는 전달된 toc 문자열의 개행을 보존하고, 양끝 공백만 정리한다.
+  return toc.replace(/\r\n?/g, '\n').replace(/\s+$/,'');
 }
 
 export function sanitizeFileName(fileName: string): string {

@@ -77,6 +77,8 @@ export interface BookDetailData {
   categories?: string[];
   rating?: string;
   coverImage?: string;
+  publisher?: string;
+  publishDate?: string;
 }
 
 // 레거시 에러 타입 (deprecated)
