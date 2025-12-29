@@ -1,4 +1,4 @@
-import { Plugin } from 'obsidian';
+import { Plugin, Notice } from 'obsidian';
 import { KyobobookPluginSettings } from './types';
 import { DEFAULT_SETTINGS } from './settings';
 import { KyobobookSearchModal } from './ui/search-modal';
@@ -44,7 +44,14 @@ export default class KyobobookPlugin extends Plugin {
 
     } catch (error) {
       console.error('교보문고 플러그인 로딩 실패:', error);
-      throw error;
+      // 플러그인 자동 비활성화 방지를 위해 에러를 다시 던지지 않음
+      // 대신 사용자에게 알림 표시
+      new Notice('교보문고 플러그인 로딩 중 오류가 발생했습니다. 개발자 도구의 콘솔을 확인해주세요.');
+
+      // 로거가 초기화되어 있다면 로거에도 기록
+      if (this.logger) {
+        this.logger.error('KyobobookPlugin', '플러그인 로딩 실패 (치명적 오류)', { error });
+      }
     }
   }
 

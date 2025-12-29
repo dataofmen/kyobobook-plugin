@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, PluginSettingTab, Setting, TFolder } from 'obsidian';
 import KyobobookPlugin from '../main';
 
 export class KyobobookSettingTab extends PluginSettingTab {
@@ -18,16 +18,34 @@ export class KyobobookSettingTab extends PluginSettingTab {
     containerEl.createEl('h2', { text: '교보문고 플러그인 설정' });
 
     // 저장 폴더 설정
+    const folders = this.app.vault.getAllLoadedFiles()
+      .filter(f => f instanceof TFolder) as TFolder[];
+
+    // 경로 기준으로 정렬
+    folders.sort((a, b) => a.path.localeCompare(b.path));
+
+    const folderOptions: Record<string, string> = {};
+    // 루트 폴더 명시적 추가
+    folderOptions[''] = 'Root (최상위 폴더)';
+
+    folders.forEach(f => {
+      // 루트가 아닌 경우만 추가 (이미 위에서 추가함)
+      if (f.path) {
+        folderOptions[f.path] = f.path;
+      }
+    });
+
     new Setting(containerEl)
       .setName('저장 폴더')
-      .setDesc('도서 노트가 저장될 폴더를 지정합니다. 비워두면 루트 폴더에 저장됩니다.')
-      .addText(text => text
-        .setPlaceholder('예: 도서')
-        .setValue(this.plugin.settings.saveFolder)
-        .onChange(async (value) => {
-          this.plugin.settings.saveFolder = value;
-          await this.plugin.saveSettings();
-        }));
+      .setDesc('도서 노트가 저장될 폴더를 선택합니다.')
+      .addDropdown(dropdown => {
+        dropdown.addOptions(folderOptions)
+          .setValue(this.plugin.settings.saveFolder)
+          .onChange(async (value) => {
+            this.plugin.settings.saveFolder = value;
+            await this.plugin.saveSettings();
+          });
+      });
 
     // 파일명 템플릿 설정
     new Setting(containerEl)
